@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtm-architecture.dev/schemas/ecommerce-schema.json",
+  "title": "Ecommerce Data Layer Envelope (GA4-aligned)",
+  "description": "Contract for ecommerce dataLayer pushes. Deliberately aligned to GA4 recommended ecommerce events so the platform's own funnel, item and monetisation reports work without remapping. Deviating from GA4's reserved ecommerce vocabulary here costs you the built-in reporting and buys nothing.",
+  "version": "2.1.0",
+  "type": "object",
+  "required": ["event", "event_id", "event_ts", "ecommerce"],
+  "additionalProperties": false,
+
+  "properties": {
+    "event": {
+      "description": "GA4 recommended ecommerce event names. This is the one place where the platform's vocabulary wins over ours.",
+      "enum": [
+        "view_item_list",
+        "select_item",
+        "view_item",
+        "add_to_wishlist",
+        "add_to_cart",
+        "remove_from_cart",
+        "view_cart",
+        "begin_checkout",
+        "add_shipping_info",
+        "add_payment_info",
+        "purchase",
+        "refund",
+        "view_promotion",
+        "select_promotion"
+      ]
+    },
+
+    "event_id": {
+      "type": "string",
+      "description": "UUIDv4. Deduplication key for browser + server dual emission (Meta CAPI event_id, Google Ads order id).",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+
+    "event_ts": { "type": "string", "format": "date-time" },
+
+    "ecommerce": { "$ref": "#/$defs/ecommerce" },
+    "context": { "$ref": "#/$defs/context" },
+    "customer": { "$ref": "#/$defs/customer" },
+
+    "_clear": {
+      "type": "boolean",
+      "const": true,
+      "description": "MANDATORY on every ecommerce push in a GTM implementation. Without it the previous items array persists in the dataLayer and contaminates the next event. This single omission is the most common cause of inflated ecommerce revenue."
+    }
+  },
+
+  "$defs": {
+
+    "ecommerce": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "transaction_id": {
+          "type": "string",
+          "description": "Required on purchase and refund. The idempotency key: GA4 does not deduplicate on it automatically, so your server must guarantee one emission per order.",
+          "maxLength": 100
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total including tax and shipping unless your finance definition says otherwise. Whatever you choose, document it once and never change it silently."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217. Required whenever value is present, at both event and item level. GA4 discards revenue on mixed or missing currency."
+        },
+        "tax": { "type": "number", "minimum": 0 },
+        "shipping": { "type": "number", "minimum": 0 },
+        "coupon": { "type": "string", "maxLength": 100 },
+        "payment_type": { "type": "string", "maxLength": 100 },
+        "shipping_tier": { "type": "string", "maxLength": 100 },
+        "item_list_id": { "type": "string", "maxLength": 100 },
+        "item_list_name": { "type": "string", "maxLength": 100 },
+        "creative_name": { "type": "string", "maxLength": 100 },
+        "creative_slot": { "type": "string", "maxLength": 100 },
+        "promotion_id": { "type": "string", "maxLength": 100 },
+        "promotion_name": { "type": "string", "maxLength": 100 },
+        "refund_type": { "enum": ["full", "partial"] },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "description": "GA4 accepts up to 200 items per event. Beyond ~27 item-scoped custom parameters per event, extras are dropped silently.",
+          "items": { "$ref": "#/$defs/item" }
+        }
+      },
+      "dependentRequired": {
+        "value": ["currency"],
+        "transaction_id": ["value", "currency"]
+      }
+    },
+
+    "item": {
+      "type": "object",
+      "required": ["item_id", "item_name", "quantity", "price"],
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "description": "SKU. MUST match the id used in the Merchant Center / product feed, or remarketing audiences and Shopping reporting silently fail to join.",
+          "maxLength": 100
+        },
+        "item_name": { "type": "string", "maxLength": 100 },
+        "affiliation": { "type": "string", "maxLength": 100 },
+        "coupon": { "type": "string", "maxLength": 100 },
+        "discount": { "type": "number", "minimum": 0, "description": "Per-unit discount amount, not a percentage." },
+        "index": { "type": "integer", "minimum": 0, "description": "Zero-based position in the list. Required for merchandising and list-performance analysis." },
+        "item_brand": { "type": "string", "maxLength": 100 },
+        "item_category": { "type": "string", "maxLength": 100 },
+        "item_category2": { "type": "string", "maxLength": 100 },
+        "item_category3": { "type": "string", "maxLength": 100 },
+        "item_category4": { "type": "string", "maxLength": 100 },
+        "item_category5": { "type": "string", "maxLength": 100 },
+        "item_list_id": { "type": "string", "maxLength": 100 },
+        "item_list_name": { "type": "string", "maxLength": 100 },
+        "item_variant": { "type": "string", "maxLength": 100 },
+        "location_id": { "type": "string", "maxLength": 100 },
+        "price": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Unit price BEFORE quantity multiplication and AFTER item-level discount. The most frequently mis-implemented field in ecommerce tracking."
+        },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "item_stock_status": { "enum": ["in_stock", "low_stock", "out_of_stock", "preorder", "backorder"] },
+        "item_margin_band": {
+          "enum": ["low", "medium", "high"],
+          "description": "Custom item-scoped dimension. Banded rather than exact so margin data never leaves the building in a readable form."
+        }
+      }
+    },
+
+    "context": {
+      "type": "object",
+      "required": ["anonymous_id", "session_id", "environment", "consent"],
+      "additionalProperties": false,
+      "properties": {
+        "anonymous_id": { "type": "string", "maxLength": 64 },
+        "session_id": { "type": "string", "maxLength": 64 },
+        "environment": { "enum": ["production", "staging", "development"] },
+        "app_surface": { "enum": ["web", "ios", "android", "api"] },
+        "page_location": { "type": "string", "maxLength": 1000 },
+        "page_type": { "enum": ["home", "category", "product", "cart", "checkout", "confirmation", "search", "account", "content", "other"] },
+        "consent": {
+          "type": "object",
+          "required": ["ad_storage", "analytics_storage", "ad_user_data", "ad_personalization"],
+          "additionalProperties": false,
+          "properties": {
+            "ad_storage": { "enum": ["granted", "denied"] },
+            "analytics_storage": { "enum": ["granted", "denied"] },
+            "ad_user_data": { "enum": ["granted", "denied"] },
+            "ad_personalization": { "enum": ["granted", "denied"] },
+            "cmp_version": { "type": "string", "maxLength": 20 }
+          }
+        }
+      }
+    },
+
+    "customer": {
+      "type": "object",
+      "description": "Customer state. Contains NO personal data. Enhanced Conversions / CAPI match keys are hashed and dispatched SERVER-SIDE and never appear in the dataLayer.",
+      "additionalProperties": false,
+      "properties": {
+        "customer_id": { "type": "string", "maxLength": 64, "not": { "pattern": "@" } },
+        "customer_type": { "enum": ["new", "returning", "reactivated"] },
+        "order_count_lifetime": { "type": "integer", "minimum": 0 },
+        "ltv_band": {
+          "enum": ["0", "1_100", "101_500", "501_2000", "2000_plus"],
+          "description": "Banded lifetime value. Bands rather than exact figures keep a revenue-sensitive number out of client-side code."
+        },
+        "loyalty_tier": { "type": "string", "maxLength": 40 },
+        "is_employee": { "type": "boolean" }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "event": "purchase",
+      "event_id": "8c1d4e9a-2f37-4b6c-a15e-93d0b7c4f218",
+      "event_ts": "2026-09-09T09:14:52.011Z",
+      "ecommerce": {
+        "transaction_id": "ORD-2026-118422",
+        "value": 154.90,
+        "tax": 26.87,
+        "shipping": 4.95,
+        "currency": "EUR",
+        "coupon": "AUTUMN10",
+        "payment_type": "bancontact",
+        "items": [
+          {
+            "item_id": "SKU-4471",
+            "item_name": "Merino Crew Knit",
+            "item_brand": "Northline",
+            "item_category": "knitwear",
+            "item_variant": "charcoal / M",
+            "price": 89.00,
+            "discount": 9.90,
+            "quantity": 1,
+            "index": 0,
+            "currency": "EUR",
+            "item_stock_status": "in_stock",
+            "item_margin_band": "high"
+          },
+          {
+            "item_id": "SKU-2210",
+            "item_name": "Cotton Oxford Shirt",
+            "item_category": "shirts",
+            "item_variant": "white / M",
+            "price": 60.90,
+            "quantity": 1,
+            "index": 1,
+            "currency": "EUR",
+            "item_stock_status": "low_stock",
+            "item_margin_band": "medium"
+          }
+        ]
+      },
+      "context": {
+        "anonymous_id": "b7e2f091-3c4d-4e5a-9b8c-1d2e3f4a5b6c",
+        "session_id": "s_01J8XM4Q7R",
+        "environment": "production",
+        "app_surface": "web",
+        "page_type": "confirmation",
+        "consent": {
+          "ad_storage": "granted",
+          "analytics_storage": "granted",
+          "ad_user_data": "granted",
+          "ad_personalization": "granted",
+          "cmp_version": "4.2.1"
+        }
+      },
+      "customer": {
+        "customer_id": "c_1f8a20",
+        "customer_type": "returning",
+        "order_count_lifetime": 4,
+        "ltv_band": "501_2000",
+        "is_employee": false
+      },
+      "_clear": true
+    }
+  ]
+}

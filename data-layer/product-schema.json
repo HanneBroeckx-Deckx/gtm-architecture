@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtm-architecture.dev/schemas/product-schema.json",
+  "title": "In-Product Event Envelope",
+  "description": "Contract for events emitted from inside the authenticated product, by the application backend or the app client. Unlike the marketing-site data layer, these events are emitted directly to the collection endpoint rather than through window.dataLayer, because the browser is not a trustworthy narrator of what the product actually did.",
+  "version": "2.1.0",
+  "type": "object",
+  "required": ["event", "event_id", "event_ts", "source", "identity"],
+  "additionalProperties": false,
+
+  "properties": {
+    "event": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,39}$",
+      "maxLength": 40
+    },
+
+    "event_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Deduplication key. For server events derived from a database transaction, deriving this deterministically from (table, row_id, transition) makes the whole pipeline idempotent under replay."
+    },
+
+    "event_ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the transition occurred, not when it was dispatched. For batched or queued emission these differ, and using dispatch time silently smears your funnels."
+    },
+
+    "ingested_ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Set by the collection endpoint. event_ts minus ingested_ts is your pipeline latency SLI."
+    },
+
+    "source": {
+      "type": "object",
+      "required": ["emitter", "emitter_version"],
+      "additionalProperties": false,
+      "properties": {
+        "emitter": {
+          "enum": ["api", "worker", "scheduler", "webhook", "web_client", "ios_client", "android_client", "cli", "integration"],
+          "description": "Which system emitted this. Tier 0 events MUST NOT come from a *_client emitter."
+        },
+        "emitter_version": { "type": "string", "maxLength": 40 },
+        "is_backfill": {
+          "type": "boolean",
+          "description": "True for historical replays. Every downstream metric must be able to exclude backfills, or a migration will look like a growth spike."
+        },
+        "idempotency_key": { "type": "string", "maxLength": 128 }
+      }
+    },
+
+    "identity": { "$ref": "#/$defs/identity" },
+    "feature": { "$ref": "#/$defs/feature" },
+    "onboarding": { "$ref": "#/$defs/onboarding" },
+    "reliability": { "$ref": "#/$defs/reliability" },
+
+    "properties": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,39}$" },
+      "maxProperties": 12,
+      "additionalProperties": { "type": ["string", "number", "integer", "boolean", "null"] }
+    },
+
+    "governance": { "$ref": "#/$defs/governance" }
+  },
+
+  "$defs": {
+
+    "identity": {
+      "type": "object",
+      "required": ["account_id"],
+      "additionalProperties": false,
+      "description": "Account-first by design. In B2B the account is the unit that renews, expands and churns; a user-scoped retention curve on a B2B product is a vanity chart.",
+      "properties": {
+        "account_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "user_id": { "type": "string", "maxLength": 64, "not": { "pattern": "@" } },
+        "anonymous_id": { "type": "string", "maxLength": 64 },
+        "workspace_id": { "type": "string", "maxLength": 64 },
+        "actor_type": {
+          "enum": ["user", "system", "integration", "automation", "support_impersonation"],
+          "description": "support_impersonation MUST be excluded from every product metric. Failing to model this means your support team's activity inflates your engagement numbers."
+        },
+        "is_internal": { "type": "boolean" },
+        "session_id": { "type": "string", "maxLength": 64 }
+      }
+    },
+
+    "feature": {
+      "type": "object",
+      "description": "Present on feature_used / feature_configured / feature_adopted / feature_abandoned. feature_id is validated against the registry in tooling/tracking-plan.json.",
+      "required": ["feature_id"],
+      "additionalProperties": false,
+      "properties": {
+        "feature_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,50}$" },
+        "feature_category": { "enum": ["authoring", "automation", "analytics", "collaboration", "admin", "integration", "ai"] },
+        "usage_depth": {
+          "enum": ["viewed", "used", "configured", "automated"],
+          "description": "The depth ladder. A feature with high 'viewed' and near-zero 'configured' has an activation problem, not a demand problem."
+        },
+        "usage_index": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Nth use by this user. Removes the need for a separate first_used event: usage_index = 1 IS the first-use cohort."
+        },
+        "account_usage_index": { "type": "integer", "minimum": 1 },
+        "entry_point": { "enum": ["nav", "command_palette", "keyboard_shortcut", "empty_state", "contextual_prompt", "automation", "api", "deep_link", "search"] },
+        "feature_tier_required": { "enum": ["free", "starter", "growth", "enterprise"] },
+        "outcome": { "enum": ["success", "partial", "failed", "cancelled"] },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "onboarding": {
+      "type": "object",
+      "description": "Present on the onboarding_* family. The generic step model: one event family, any number of steps, no schema change when the flow is reordered.",
+      "required": ["flow_id", "flow_version"],
+      "additionalProperties": false,
+      "properties": {
+        "flow_id": { "enum": ["initial_setup", "workspace_setup", "integration_setup", "team_invite", "feature_intro"] },
+        "flow_version": {
+          "type": "string",
+          "pattern": "^[0-9]{4}\\.[0-9]{1,2}$",
+          "description": "Completion rates are never compared across flow_version values without an explicit annotation. A version change means the denominator changed."
+        },
+        "step_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,40}$" },
+        "step_index": { "type": "integer", "minimum": 1 },
+        "step_count_total": { "type": "integer", "minimum": 1 },
+        "step_outcome": { "enum": ["completed", "skipped", "failed"] },
+        "is_optional": { "type": "boolean" },
+        "attempt_number": { "type": "integer", "minimum": 1 },
+        "time_on_step_s": { "type": "integer", "minimum": 0 },
+        "assistance_used": { "enum": ["tooltip", "docs_link", "chat", "video", "none"] }
+      }
+    },
+
+    "reliability": {
+      "type": "object",
+      "description": "Present on error and performance events. Never carries a raw error message or stack trace: those leak user content and belong in the error monitor, which is a different system under a different legal basis.",
+      "additionalProperties": false,
+      "properties": {
+        "error_code": { "type": "string", "maxLength": 60 },
+        "error_class": { "enum": ["client", "server", "upstream", "rate_limit", "validation", "auth"] },
+        "http_status": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "endpoint_pattern": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Templated path such as /v1/workspaces/{id}/items. NEVER the populated path: real paths carry identifiers and blow up cardinality.",
+          "not": { "pattern": "[0-9a-f]{8}-[0-9a-f]{4}" }
+        },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "is_retryable": { "type": "boolean" },
+        "retry_number": { "type": "integer", "minimum": 0 },
+        "is_user_facing": {
+          "type": "boolean",
+          "description": "Whether a human saw this fail. Separates the support queue from the engineering page."
+        }
+      }
+    },
+
+    "governance": {
+      "type": "object",
+      "description": "Metadata carried for lineage and compliance. Written by the collection layer from tracking-plan.json, never by the emitting application.",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "type": "string", "maxLength": 20 },
+        "tier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "description": "0 revenue/contractual, 1 activation loop, 2 feature usage, 3 experimental."
+        },
+        "contains_pii": {
+          "type": "boolean",
+          "const": false,
+          "description": "Asserted false and enforced. An event carrying PII must not reach this pipeline at all."
+        },
+        "retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+        "lawful_basis": { "enum": ["consent", "legitimate_interest", "contract", "legal_obligation"] },
+        "destinations": {
+          "type": "array",
+          "items": { "enum": ["ga4", "warehouse", "crm", "ads", "product_analytics", "lifecycle"] },
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "event": "feature_used",
+      "event_id": "d4b81f60-5a29-4c73-8e10-6f2a9b3c7d54",
+      "event_ts": "2026-09-09T11:07:33.900Z",
+      "ingested_ts": "2026-09-09T11:07:34.112Z",
+      "source": { "emitter": "api", "emitter_version": "2026.9.3", "is_backfill": false },
+      "identity": {
+        "account_id": "acc_44b2e1",
+        "user_id": "u_9f3c1a",
+        "workspace_id": "ws_71ad3c",
+        "actor_type": "user",
+        "is_internal": false
+      },
+      "feature": {
+        "feature_id": "automation_builder",
+        "feature_category": "automation",
+        "usage_depth": "configured",
+        "usage_index": 7,
+        "account_usage_index": 23,
+        "entry_point": "command_palette",
+        "feature_tier_required": "growth",
+        "outcome": "success",
+        "duration_ms": 4820
+      },
+      "properties": {
+        "rule_condition_count": 3,
+        "rule_action_count": 2,
+        "is_template_based": false
+      },
+      "governance": {
+        "schema_version": "2.1.0",
+        "tier": 2,
+        "contains_pii": false,
+        "retention_days": 790,
+        "lawful_basis": "legitimate_interest",
+        "destinations": ["warehouse", "product_analytics"]
+      }
+    }
+  ]
+}

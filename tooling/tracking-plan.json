@@ -1,0 +1,2217 @@
+{
+  "$schema": "./schemas/tracking-plan.schema.json",
+  "plan_name": "Arclight measurement plan",
+  "plan_version": "2026.2.0",
+  "updated_at": "2026-09-09",
+  "description": "The machine-readable source of truth. Prose documentation is generated from this file; TypeScript types are generated from this file; CI validates against this file. Nothing is authoritative except this file.",
+  "conventions": {
+    "event_name_pattern": "^[a-z][a-z0-9_]{2,39}$",
+    "max_event_name_length": 40,
+    "property_name_pattern": "^[a-z][a-z0-9_]{1,39}$",
+    "max_property_name_length": 40,
+    "enum_value_pattern": "^[a-z0-9][a-z0-9_]{0,60}$",
+    "max_properties_per_event": 12,
+    "soft_max_properties_per_event": 8,
+    "reserved_prefixes": [
+      "ga_",
+      "google_",
+      "firebase_",
+      "gtm_",
+      "dl_",
+      "_"
+    ],
+    "reserved_event_names": [
+      "session_start",
+      "first_visit",
+      "first_open",
+      "user_engagement",
+      "app_remove",
+      "ad_click",
+      "ad_impression"
+    ],
+    "forbidden_name_patterns": [
+      {
+        "pattern": "_v[0-9]+$",
+        "reason": "Version suffixes in names. Mint a new semantic name instead."
+      },
+      {
+        "pattern": "__",
+        "reason": "Double underscore."
+      },
+      {
+        "pattern": "^(test|tmp|temp|debug|asdf|xxx)_",
+        "reason": "Test artifact in a production plan."
+      },
+      {
+        "pattern": "(button|link|modal|popup|div)",
+        "reason": "UI element in an event name. Track the transition, not the widget."
+      }
+    ],
+    "approved_verbs": [
+      "created",
+      "added",
+      "removed",
+      "deleted",
+      "archived",
+      "updated",
+      "renamed",
+      "viewed",
+      "opened",
+      "started",
+      "completed",
+      "abandoned",
+      "cancelled",
+      "failed",
+      "submitted",
+      "accepted",
+      "declined",
+      "shared",
+      "invited",
+      "upgraded",
+      "downgraded",
+      "connected",
+      "disconnected",
+      "searched",
+      "exported",
+      "imported",
+      "identified",
+      "reached",
+      "blocked",
+      "hit",
+      "progressed",
+      "engaged",
+      "performed",
+      "captured",
+      "requested",
+      "used",
+      "adopted",
+      "succeeded",
+      "expired",
+      "reactivated",
+      "extended",
+      "set",
+      "returned",
+      "thrown",
+      "changed",
+      "closed",
+      "configured",
+      "sent",
+      "clicked"
+    ],
+    "name_exceptions": [
+      "page_view",
+      "purchase",
+      "refund",
+      "add_to_cart",
+      "remove_from_cart",
+      "view_cart",
+      "begin_checkout",
+      "add_shipping_info",
+      "add_payment_info",
+      "view_item",
+      "view_item_list",
+      "select_item",
+      "view_promotion",
+      "select_promotion",
+      "add_to_wishlist",
+      "generate_lead"
+    ],
+    "name_exceptions_reason": "GA4 recommended ecommerce and lead event names. Mapping to the platform's own vocabulary preserves its built-in reporting; inventing a parallel custom event fragments it. Exempt from the verb rule only.",
+    "enum_value_pattern_note": "Lowercase snake_case. A leading digit is permitted only for banded ranges such as 1_10 or 5k_25k."
+  },
+  "platform_limits": {
+    "ga4": {
+      "verified_on": "2026-09",
+      "note": "Google truncates rather than errors. Nothing in the UI reports a breach. This is why the limits are enforced here.",
+      "event_name_max_chars": 40,
+      "parameters_per_event": 25,
+      "parameter_name_max_chars": 40,
+      "parameter_value_max_chars": 100,
+      "user_properties_max": 25,
+      "user_property_name_max_chars": 24,
+      "user_property_value_max_chars": 36,
+      "event_scoped_dimensions": 50,
+      "event_scoped_metrics": 50,
+      "user_scoped_dimensions": 25,
+      "item_scoped_dimensions": 10
+    }
+  },
+  "budgets": {
+    "event_scoped_dimensions": {
+      "cap": 50,
+      "budget": 30
+    },
+    "user_scoped_dimensions": {
+      "cap": 25,
+      "budget": 15
+    },
+    "free_text_properties": 0,
+    "unbounded_non_id_properties_per_event": 0,
+    "unbounded_non_id_note": "Identifier properties ending in _id are explicit join keys and are exempt. Anything else unbounded is free text in disguise."
+  },
+  "tiers": {
+    "0": {
+      "label": "Revenue / contractual",
+      "source": "server",
+      "monitoring": "hourly_freshness_paged_anomaly",
+      "approvals": 2,
+      "reconciliation": "monthly"
+    },
+    "1": {
+      "label": "Activation loop",
+      "source": "server_or_hardened_client",
+      "monitoring": "daily_freshness_alert",
+      "approvals": 1,
+      "reconciliation": "quarterly"
+    },
+    "2": {
+      "label": "Feature usage / diagnostics",
+      "source": "any",
+      "monitoring": "weekly_dashboard",
+      "approvals": 1,
+      "reconciliation": "none"
+    },
+    "3": {
+      "label": "Experimental",
+      "source": "any",
+      "monitoring": "none",
+      "approvals": 1,
+      "reconciliation": "none",
+      "default_ttl_days": 90
+    }
+  },
+  "enums": {
+    "plan_tier": [
+      "free",
+      "starter",
+      "growth",
+      "enterprise"
+    ],
+    "billing_interval": [
+      "monthly",
+      "annual"
+    ],
+    "signup_method": [
+      "email",
+      "google",
+      "microsoft",
+      "saml",
+      "invite",
+      "api"
+    ],
+    "creation_path": [
+      "self_serve",
+      "sales_provisioned",
+      "partner",
+      "migration"
+    ],
+    "creation_method": [
+      "blank",
+      "template",
+      "import",
+      "duplicate",
+      "api",
+      "manual",
+      "automation"
+    ],
+    "payment_method": [
+      "card",
+      "sepa_debit",
+      "bank_transfer",
+      "invoice",
+      "other"
+    ],
+    "payment_failure_reason": [
+      "insufficient_funds",
+      "card_expired",
+      "card_declined",
+      "3ds_failed",
+      "sca_required",
+      "processor_error",
+      "fraud_suspected"
+    ],
+    "cancellation_reason": [
+      "too_expensive",
+      "missing_features",
+      "switched_competitor",
+      "no_longer_needed",
+      "poor_experience",
+      "company_closed",
+      "not_specified"
+    ],
+    "cancellation_type": [
+      "voluntary",
+      "involuntary",
+      "sales_initiated"
+    ],
+    "change_trigger": [
+      "self_serve",
+      "sales",
+      "usage_threshold",
+      "seat_true_up"
+    ],
+    "member_role": [
+      "owner",
+      "admin",
+      "editor",
+      "commenter",
+      "viewer",
+      "billing"
+    ],
+    "change_source": [
+      "invite",
+      "sso_provisioning",
+      "admin_action",
+      "scim"
+    ],
+    "invite_surface": [
+      "onboarding",
+      "settings",
+      "share_modal",
+      "empty_state",
+      "api"
+    ],
+    "integration_category": [
+      "crm",
+      "messaging",
+      "storage",
+      "identity",
+      "billing",
+      "automation"
+    ],
+    "integration_slug": [
+      "hubspot",
+      "salesforce",
+      "pipedrive",
+      "slack",
+      "teams",
+      "gmail",
+      "outlook",
+      "google_drive",
+      "notion",
+      "zapier",
+      "okta",
+      "stripe"
+    ],
+    "auth_method": [
+      "oauth2",
+      "api_key",
+      "webhook",
+      "saml"
+    ],
+    "disconnect_reason": [
+      "user_action",
+      "auth_expired",
+      "permission_revoked",
+      "error_threshold",
+      "account_deleted"
+    ],
+    "flow_id": [
+      "initial_setup",
+      "workspace_setup",
+      "integration_setup",
+      "team_invite",
+      "feature_intro"
+    ],
+    "step_id": [
+      "create_pipeline",
+      "invite_team",
+      "connect_crm",
+      "import_deals",
+      "set_goals",
+      "review_summary"
+    ],
+    "step_outcome": [
+      "completed",
+      "skipped",
+      "failed"
+    ],
+    "entry_point": [
+      "post_signup",
+      "first_login",
+      "empty_state",
+      "nav_prompt",
+      "email_link",
+      "resumed"
+    ],
+    "activation_path": [
+      "guided",
+      "self_directed",
+      "sales_assisted",
+      "invited_to_existing"
+    ],
+    "deal_stage": [
+      "new",
+      "qualified",
+      "discovery",
+      "proposal",
+      "negotiation",
+      "closed_won",
+      "closed_lost",
+      "on_hold"
+    ],
+    "deal_value_band": [
+      "under_1k",
+      "1k_5k",
+      "5k_25k",
+      "25k_100k",
+      "over_100k"
+    ],
+    "close_outcome": [
+      "won",
+      "lost",
+      "no_decision"
+    ],
+    "export_format": [
+      "csv",
+      "xlsx",
+      "pdf",
+      "json",
+      "api"
+    ],
+    "export_surface": [
+      "dashboard",
+      "report",
+      "item_detail",
+      "settings",
+      "api"
+    ],
+    "status": [
+      "success",
+      "partial",
+      "failed",
+      "cancelled"
+    ],
+    "page_type": [
+      "home",
+      "pricing",
+      "product",
+      "blog",
+      "docs",
+      "case_study",
+      "comparison",
+      "legal",
+      "careers",
+      "app",
+      "auth",
+      "other"
+    ],
+    "form_type": [
+      "demo_request",
+      "contact",
+      "content_download",
+      "newsletter",
+      "webinar",
+      "pricing_enquiry",
+      "trial_request"
+    ],
+    "form_surface": [
+      "landing_page",
+      "inline_content",
+      "modal",
+      "footer",
+      "chat",
+      "sidebar"
+    ],
+    "cta_location": [
+      "hero",
+      "nav",
+      "inline",
+      "sticky",
+      "footer",
+      "modal",
+      "pricing_table"
+    ],
+    "email_domain_type": [
+      "business",
+      "freemail",
+      "edu",
+      "disposable"
+    ],
+    "company_size_band": [
+      "1_10",
+      "11_50",
+      "51_200",
+      "201_1000",
+      "1000_plus",
+      "unknown"
+    ],
+    "gate_id": [
+      "pipeline_automation",
+      "advanced_reporting",
+      "api_access",
+      "sso",
+      "audit_log",
+      "custom_fields",
+      "bulk_import",
+      "seat_limit"
+    ],
+    "usage_depth": [
+      "viewed",
+      "used",
+      "configured",
+      "automated"
+    ],
+    "feature_category": [
+      "authoring",
+      "automation",
+      "analytics",
+      "collaboration",
+      "admin",
+      "integration",
+      "ai"
+    ],
+    "error_class": [
+      "client",
+      "server",
+      "upstream",
+      "rate_limit",
+      "validation",
+      "auth"
+    ],
+    "binding_trigger": [
+      "signup",
+      "login",
+      "invite_accept",
+      "sso_provision"
+    ],
+    "consent_action": [
+      "default_applied",
+      "accept_all",
+      "reject_all",
+      "custom",
+      "withdrawn",
+      "restored"
+    ],
+    "consent_value": [
+      "granted",
+      "denied"
+    ],
+    "app_surface": [
+      "web",
+      "ios",
+      "android",
+      "api",
+      "email",
+      "server"
+    ],
+    "content_type": [
+      "article",
+      "guide",
+      "case_study",
+      "video",
+      "webinar",
+      "docs"
+    ],
+    "engagement_trigger": [
+      "scroll_75",
+      "dwell_45s",
+      "video_50pct",
+      "interaction"
+    ]
+  },
+  "feature_registry": [
+    {
+      "feature_id": "pipeline_automation",
+      "feature_name": "Pipeline automation",
+      "feature_category": "automation",
+      "feature_tier_required": "growth",
+      "released_at": "2025-11-04",
+      "is_core": false,
+      "owner": "pm.automation@arclight.example",
+      "depth_levels": [
+        "viewed",
+        "used",
+        "configured",
+        "automated"
+      ]
+    },
+    {
+      "feature_id": "advanced_reporting",
+      "feature_name": "Advanced reporting",
+      "feature_category": "analytics",
+      "feature_tier_required": "growth",
+      "released_at": "2025-06-17",
+      "is_core": false,
+      "owner": "pm.analytics@arclight.example",
+      "depth_levels": [
+        "viewed",
+        "used",
+        "configured",
+        "automated"
+      ]
+    },
+    {
+      "feature_id": "deal_board",
+      "feature_name": "Deal board",
+      "feature_category": "authoring",
+      "feature_tier_required": "free",
+      "released_at": "2024-03-01",
+      "is_core": true,
+      "owner": "pm.core@arclight.example",
+      "depth_levels": [
+        "viewed",
+        "used",
+        "configured"
+      ]
+    },
+    {
+      "feature_id": "crm_sync",
+      "feature_name": "CRM sync",
+      "feature_category": "integration",
+      "feature_tier_required": "starter",
+      "released_at": "2024-09-12",
+      "is_core": true,
+      "owner": "pm.platform@arclight.example",
+      "depth_levels": [
+        "viewed",
+        "used",
+        "configured",
+        "automated"
+      ]
+    },
+    {
+      "feature_id": "ai_summary",
+      "feature_name": "AI deal summary",
+      "feature_category": "ai",
+      "feature_tier_required": "growth",
+      "released_at": "2026-08-01",
+      "is_core": false,
+      "owner": "pm.ai@arclight.example",
+      "depth_levels": [
+        "viewed",
+        "used",
+        "configured"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "signup_completed",
+      "tier": 0,
+      "owner": "growth.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A user row was committed and the account is usable. Not on form submit, not on verification email dispatch. Idempotent on user_id.",
+      "trigger": "POST /v1/signup returns 201 and the transaction commits",
+      "decision": "Determines acquisition spend allocation and the top of every conversion funnel.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "ads"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 20,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "signup_method",
+          "type": "string",
+          "required": true,
+          "enum_ref": "signup_method",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "account_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "is_new_account",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "invite_id",
+          "type": "string",
+          "required": false,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "email_domain_type",
+          "type": "string",
+          "required": true,
+          "enum_ref": "email_domain_type",
+          "register_dimension": true,
+          "scope": "event"
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "postgres.users",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "account_created",
+      "tier": 0,
+      "owner": "growth.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A billable entity came into existence. Distinct from signup_completed: one account accumulates many users, and in a sales-led motion the account is provisioned before any user exists.",
+      "trigger": "Account row committed",
+      "decision": "The denominator for every account-scoped cohort, retention curve and activation rate.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 20,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "creation_path",
+          "type": "string",
+          "required": true,
+          "enum_ref": "creation_path",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": true,
+          "scope": "user"
+        },
+        {
+          "name": "is_trial",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "trial_ends_at",
+          "type": "string",
+          "format": "date-time",
+          "required": false,
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "postgres.accounts",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "trial_started",
+      "tier": 0,
+      "owner": "growth@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A time-limited trial of a paid tier began.",
+      "trigger": "Trial record created on the subscription",
+      "decision": "Trial volume and mix drive the paid-conversion forecast.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "ads"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 20,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "trial_length_days",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": false
+        },
+        {
+          "name": "requires_payment_method",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "trial_source",
+          "type": "string",
+          "required": true,
+          "enum_ref": "creation_path",
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "stripe",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "subscription_started",
+      "tier": 0,
+      "owner": "revenue.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "First paid subscription on the account. Fires on the billing provider's confirmed activation webhook, never on checkout submit.",
+      "trigger": "Stripe customer.subscription.created with status=active",
+      "decision": "New MRR. Reconciled monthly against the billing system with a 0.5% tolerance.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "ads"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 20,
+        "paged": true
+      },
+      "reconciliation": {
+        "source_of_record": "stripe",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      },
+      "properties": [
+        {
+          "name": "subscription_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": false
+        },
+        {
+          "name": "billing_interval",
+          "type": "string",
+          "required": true,
+          "enum_ref": "billing_interval",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true,
+          "format": "iso4217",
+          "register_dimension": false
+        },
+        {
+          "name": "mrr",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "seat_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "converted_from_trial",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "payment_method",
+          "type": "string",
+          "required": true,
+          "enum_ref": "payment_method",
+          "register_dimension": false
+        },
+        {
+          "name": "sales_assisted",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": true,
+          "scope": "event"
+        }
+      ]
+    },
+    {
+      "name": "subscription_upgraded",
+      "tier": 0,
+      "owner": "revenue.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "Movement to a higher tier, or a seat increase that raises MRR.",
+      "trigger": "Subscription update webhook where mrr_delta > 0",
+      "decision": "Expansion MRR, the numerator of net revenue retention.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 25,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "subscription_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "plan_tier_previous",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": false
+        },
+        {
+          "name": "plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": false
+        },
+        {
+          "name": "mrr_previous",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "mrr",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "mrr_delta",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true,
+          "format": "iso4217",
+          "register_dimension": false
+        },
+        {
+          "name": "seat_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "change_trigger",
+          "type": "string",
+          "required": true,
+          "enum_ref": "change_trigger",
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "stripe",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "subscription_cancelled",
+      "tier": 0,
+      "owner": "revenue.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "Cancellation requested. Access usually continues until period end, which is subscription_expired. Conflating the two is the most common churn-reporting error there is.",
+      "trigger": "Subscription cancel_at_period_end set, or immediate cancellation",
+      "decision": "Leading churn indicator and the trigger for the save-offer motion.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 25,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "subscription_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "cancellation_reason",
+          "type": "string",
+          "required": true,
+          "enum_ref": "cancellation_reason",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "cancellation_type",
+          "type": "string",
+          "required": true,
+          "enum_ref": "cancellation_type",
+          "register_dimension": false
+        },
+        {
+          "name": "mrr_lost",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true,
+          "format": "iso4217",
+          "register_dimension": false
+        },
+        {
+          "name": "subscription_age_days",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "effective_at",
+          "type": "string",
+          "format": "date-time",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "has_save_offer_shown",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "stripe",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "payment_failed",
+      "tier": 0,
+      "owner": "revenue.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-05-20",
+      "source": "server",
+      "description": "An invoice payment attempt failed. Involuntary churn is typically 20-40% of total churn and is the only kind that is fully recoverable.",
+      "trigger": "Stripe invoice.payment_failed",
+      "decision": "Drives the dunning sequence. The highest-ROI event in most SaaS plans.",
+      "destinations": [
+        "warehouse",
+        "crm",
+        "lifecycle"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 30,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "invoice_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "failure_reason",
+          "type": "string",
+          "required": true,
+          "enum_ref": "payment_failure_reason",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "retry_number",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true,
+          "format": "iso4217",
+          "register_dimension": false
+        },
+        {
+          "name": "is_terminal",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "stripe",
+        "tolerance_pct": 0.5,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "activation_reached",
+      "tier": 0,
+      "owner": "head.of.growth@arclight.example",
+      "status": "active",
+      "introduced": "2025-01-15",
+      "source": "server",
+      "description": "The account met the activation definition. See definitions.activation for the versioned criteria. Emitted by a scheduled evaluator, not by the application path.",
+      "trigger": "Nightly evaluator detects all criteria met within the 14-day window",
+      "decision": "The single most-quoted number in the company. Influences trial conversion, expansion and churn forecasts.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 25,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "activation_definition_version",
+          "type": "string",
+          "required": true,
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "time_to_activation_h",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "criteria_met",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "activation_path",
+          "type": "string",
+          "required": true,
+          "enum_ref": "activation_path",
+          "register_dimension": false
+        },
+        {
+          "name": "is_account_first_activation",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "warehouse_recompute",
+        "tolerance_pct": 1.0,
+        "cadence": "monthly"
+      }
+    },
+    {
+      "name": "user_identified",
+      "tier": 1,
+      "owner": "data.eng@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "Binds anonymous_id to user_id. Fires ONCE per binding, server-side. Firing per page load merges unrelated users through shared devices and corrupts every cohort built afterwards.",
+      "trigger": "First authenticated request after an anonymous session",
+      "decision": "Determines whether pre-signup behaviour can be joined to post-signup outcomes at all.",
+      "destinations": [
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "anonymous_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "binding_trigger",
+          "type": "string",
+          "required": true,
+          "enum_ref": "binding_trigger",
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "pipeline_created",
+      "tier": 1,
+      "owner": "pm.core@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A pipeline row was committed. Criterion 1 of the activation definition.",
+      "trigger": "POST /v1/pipelines returns 201",
+      "decision": "First value moment. Drives onboarding design.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "pipeline_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "creation_method",
+          "type": "string",
+          "required": true,
+          "enum_ref": "creation_method",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "template_id",
+          "type": "string",
+          "required": false,
+          "register_dimension": false
+        },
+        {
+          "name": "pipeline_index",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "stage_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "time_since_signup_s",
+          "type": "integer",
+          "required": false,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "deal_stage_changed",
+      "tier": 1,
+      "owner": "pm.core@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A deal moved between pipeline stages. Replaces seven per-stage events; adding an eighth stage requires no taxonomy change.",
+      "trigger": "Deal stage field updated and committed",
+      "decision": "Stage velocity and conversion, the core analytical surface of the product.",
+      "destinations": [
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "deal_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "pipeline_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "stage_from",
+          "type": "string",
+          "required": true,
+          "enum_ref": "deal_stage",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "stage_to",
+          "type": "string",
+          "required": true,
+          "enum_ref": "deal_stage",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "days_in_previous_stage",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "is_forward",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "deal_value_band",
+          "type": "string",
+          "required": true,
+          "enum_ref": "deal_value_band",
+          "register_dimension": true,
+          "scope": "event"
+        }
+      ]
+    },
+    {
+      "name": "member_added",
+      "tier": 1,
+      "owner": "pm.core@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "A user joined the account as a member. Criterion 2 of the activation definition.",
+      "trigger": "Membership row committed",
+      "decision": "Multiplayer rate, the strongest single retention predictor in the product.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "member_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "member_role",
+          "type": "string",
+          "required": true,
+          "enum_ref": "member_role",
+          "register_dimension": false
+        },
+        {
+          "name": "seat_count_after",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "change_source",
+          "type": "string",
+          "required": true,
+          "enum_ref": "change_source",
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "invite_sent",
+      "tier": 1,
+      "owner": "growth@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "server",
+      "description": "One or more invitations dispatched. recipient_domain_matches_account is a domain comparison; no address is ever carried.",
+      "trigger": "Invite records committed and dispatched",
+      "decision": "Viral coefficient and the design of the invite surface.",
+      "destinations": [
+        "ga4",
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "invite_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "invite_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "invite_role",
+          "type": "string",
+          "required": true,
+          "enum_ref": "member_role",
+          "register_dimension": false
+        },
+        {
+          "name": "invite_surface",
+          "type": "string",
+          "required": true,
+          "enum_ref": "invite_surface",
+          "register_dimension": false
+        },
+        {
+          "name": "recipient_domain_matches_account",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "integration_connected",
+      "tier": 1,
+      "owner": "pm.platform@arclight.example",
+      "status": "active",
+      "introduced": "2024-09-12",
+      "source": "server",
+      "description": "An integration link was established and verified. One event covers all 19 providers; adding a twentieth is a registry row, not a taxonomy change.",
+      "trigger": "OAuth callback verified and connection row committed",
+      "decision": "Integration attach rate. Criterion 4 of the activation definition since v2026.2.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "integration_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "integration_slug",
+          "type": "string",
+          "required": true,
+          "enum_ref": "integration_slug",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "integration_category",
+          "type": "string",
+          "required": true,
+          "enum_ref": "integration_category",
+          "register_dimension": false
+        },
+        {
+          "name": "auth_method",
+          "type": "string",
+          "required": true,
+          "enum_ref": "auth_method",
+          "register_dimension": false
+        },
+        {
+          "name": "connection_index",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "time_to_connect_s",
+          "type": "integer",
+          "required": false,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "onboarding_step_completed",
+      "tier": 1,
+      "owner": "growth.pm@arclight.example",
+      "status": "active",
+      "introduced": "2025-02-03",
+      "source": "both",
+      "description": "One onboarding step resolved, with one of three outcomes. Replaces 18 per-step events across three flows; reordering steps requires no change.",
+      "trigger": "Step resolves as completed, skipped or failed",
+      "decision": "Where the onboarding flow leaks, and which step to fix first.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "flow_id",
+          "type": "string",
+          "required": true,
+          "enum_ref": "flow_id",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "flow_version",
+          "type": "string",
+          "required": true,
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "step_id",
+          "type": "string",
+          "required": true,
+          "enum_ref": "step_id",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "step_index",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "step_outcome",
+          "type": "string",
+          "required": true,
+          "enum_ref": "step_outcome",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "time_on_step_s",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "attempt_number",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "is_optional",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "feature_gate_blocked",
+      "tier": 1,
+      "owner": "growth@arclight.example",
+      "status": "active",
+      "introduced": "2025-04-08",
+      "source": "both",
+      "description": "A user attempted an action their plan does not permit. The highest-intent expansion signal in the plan.",
+      "trigger": "Authorisation check fails on a tier-gated capability",
+      "decision": "Feeds the live upgrade queue. Five blocks across two gates in 28 days is a sales conversation.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "lifecycle"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "gate_id",
+          "type": "string",
+          "required": true,
+          "enum_ref": "gate_id",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": false
+        },
+        {
+          "name": "required_plan_tier",
+          "type": "string",
+          "required": true,
+          "enum_ref": "plan_tier",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "gate_surface",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "upgrade_prompt_shown",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "lead_captured",
+      "tier": 1,
+      "owner": "marketing.ops@arclight.example",
+      "status": "active",
+      "introduced": "2024-04-11",
+      "source": "server",
+      "description": "A marketing form produced a lead record. Server-side because it reconciles with the CRM and because client-side form tracking loses 15-30% to blockers. Carries no address, name or free text.",
+      "trigger": "Form handler creates or updates the CRM record",
+      "decision": "Marketing-sourced pipeline and paid media optimisation.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "crm",
+        "ads"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 30,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "lead_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "form_id",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "form_type",
+          "type": "string",
+          "required": true,
+          "enum_ref": "form_type",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "form_surface",
+          "type": "string",
+          "required": true,
+          "enum_ref": "form_surface",
+          "register_dimension": false
+        },
+        {
+          "name": "email_domain_type",
+          "type": "string",
+          "required": true,
+          "enum_ref": "email_domain_type",
+          "register_dimension": false
+        },
+        {
+          "name": "company_size_band",
+          "type": "string",
+          "required": false,
+          "enum_ref": "company_size_band",
+          "register_dimension": true,
+          "scope": "user"
+        },
+        {
+          "name": "is_marketing_qualified",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "page_view",
+      "tier": 2,
+      "owner": "marketing.ops@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "client",
+      "description": "A page or SPA route rendered. Exactly one per route; enhanced measurement page views are disabled to prevent duplication.",
+      "trigger": "Initial load, or history change after the route settles",
+      "decision": "Content strategy and funnel entry analysis.",
+      "destinations": [
+        "ga4",
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": "weekly",
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "page_type",
+          "type": "string",
+          "required": true,
+          "enum_ref": "page_type",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "page_template",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "content_group",
+          "type": "string",
+          "required": false,
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "is_authenticated",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": true,
+          "scope": "event"
+        }
+      ]
+    },
+    {
+      "name": "cta_clicked",
+      "tier": 2,
+      "owner": "marketing.ops@arclight.example",
+      "status": "active",
+      "introduced": "2024-04-11",
+      "source": "client",
+      "description": "A call to action was clicked. Matched on the data-analytics-id attribute contract, never on a CSS selector, so redesigns do not break it.",
+      "trigger": "Click on any element carrying data-analytics-id",
+      "decision": "Placement and copy decisions on the marketing site.",
+      "destinations": [
+        "ga4",
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": "weekly",
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "cta_id",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "cta_label",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "cta_location",
+          "type": "string",
+          "required": true,
+          "enum_ref": "cta_location",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "cta_destination",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "export_completed",
+      "tier": 2,
+      "owner": "pm.core@arclight.example",
+      "status": "active",
+      "introduced": "2024-06-02",
+      "source": "server",
+      "description": "Data left the system in a user-requested format. Replaces 12 per-format-per-surface events.",
+      "trigger": "Export job finishes and the file is delivered",
+      "decision": "Whether export is a stickiness feature or a churn signal. Scheduled exports indicate embedded workflows.",
+      "destinations": [
+        "ga4",
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "weekly",
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "export_format",
+          "type": "string",
+          "required": true,
+          "enum_ref": "export_format",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "export_surface",
+          "type": "string",
+          "required": true,
+          "enum_ref": "export_surface",
+          "register_dimension": false
+        },
+        {
+          "name": "row_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "enum_ref": "status",
+          "register_dimension": false
+        },
+        {
+          "name": "is_scheduled",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "feature_used",
+      "tier": 2,
+      "owner": "pm.core@arclight.example",
+      "status": "active",
+      "introduced": "2025-03-17",
+      "source": "both",
+      "description": "A registered feature performed its core action. feature_id is validated against feature_registry in CI. One event family for the entire roadmap.",
+      "trigger": "Feature core action completes",
+      "decision": "Adoption depth, breadth-vs-depth segmentation, power-user identification.",
+      "destinations": [
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": "weekly",
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "feature_id",
+          "type": "string",
+          "required": true,
+          "registry_ref": "feature_registry",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "usage_depth",
+          "type": "string",
+          "required": true,
+          "enum_ref": "usage_depth",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "usage_index",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "account_usage_index",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "outcome",
+          "type": "string",
+          "required": true,
+          "enum_ref": "status",
+          "register_dimension": false
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer",
+          "required": false,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "consent_state_set",
+      "tier": 0,
+      "owner": "marketing.ops@arclight.example",
+      "status": "active",
+      "introduced": "2024-03-01",
+      "source": "both",
+      "description": "Consent state was established or changed. Captured client-side and persisted server-side, because a consent record is a legal artifact you must be able to produce on request. Also makes a consent shift visible as a consent shift rather than an unexplained traffic drop.",
+      "trigger": "Consent default applied, or user decision recorded",
+      "decision": "Segments every other metric by consent state, and evidences the implementation if a regulator asks.",
+      "destinations": [
+        "ga4",
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": "hourly",
+        "volume_anomaly_pct": 20,
+        "paged": true
+      },
+      "properties": [
+        {
+          "name": "consent_action",
+          "type": "string",
+          "required": true,
+          "enum_ref": "consent_action",
+          "register_dimension": true,
+          "scope": "event"
+        },
+        {
+          "name": "ad_storage",
+          "type": "string",
+          "required": true,
+          "enum_ref": "consent_value",
+          "register_dimension": false
+        },
+        {
+          "name": "analytics_storage",
+          "type": "string",
+          "required": true,
+          "enum_ref": "consent_value",
+          "register_dimension": false
+        },
+        {
+          "name": "ad_user_data",
+          "type": "string",
+          "required": true,
+          "enum_ref": "consent_value",
+          "register_dimension": false
+        },
+        {
+          "name": "ad_personalization",
+          "type": "string",
+          "required": true,
+          "enum_ref": "consent_value",
+          "register_dimension": false
+        },
+        {
+          "name": "cmp_version",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "region_rule",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "time_to_decision_s",
+          "type": "integer",
+          "required": false,
+          "register_dimension": false
+        }
+      ],
+      "reconciliation": {
+        "source_of_record": "cmp_audit_log",
+        "tolerance_pct": 1.0,
+        "cadence": "quarterly"
+      }
+    },
+    {
+      "name": "api_error_returned",
+      "tier": 1,
+      "owner": "pm.platform@arclight.example",
+      "status": "active",
+      "introduced": "2025-01-09",
+      "source": "server",
+      "description": "The API returned an error. endpoint_pattern is templated; populated paths carry identifiers and explode cardinality.",
+      "trigger": "Response status >= 400",
+      "decision": "Reliability prioritisation and support-load forecasting.",
+      "destinations": [
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": "daily",
+        "volume_anomaly_pct": 35,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "error_code",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "error_class",
+          "type": "string",
+          "required": true,
+          "enum_ref": "error_class",
+          "register_dimension": false
+        },
+        {
+          "name": "endpoint_pattern",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "http_status",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "latency_ms",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "is_user_facing",
+          "type": "boolean",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "ai_summary_requested",
+      "tier": 3,
+      "owner": "pm.ai@arclight.example",
+      "status": "active",
+      "introduced": "2026-08-01",
+      "expires_at": "2026-12-15",
+      "source": "server",
+      "description": "A user asked the assistant to summarise a deal. Experimental: promoted with evidence of use by the expiry date, or deleted.",
+      "trigger": "POST /v1/ai/summary accepted",
+      "decision": "Whether the AI summary feature earns a place in the activation definition.",
+      "destinations": [
+        "warehouse",
+        "product_analytics"
+      ],
+      "monitoring": {
+        "freshness": null,
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "prompt_source",
+          "type": "string",
+          "required": true,
+          "register_dimension": false
+        },
+        {
+          "name": "deal_value_band",
+          "type": "string",
+          "required": true,
+          "enum_ref": "deal_value_band",
+          "register_dimension": false
+        },
+        {
+          "name": "context_item_count",
+          "type": "integer",
+          "required": true,
+          "register_dimension": false
+        }
+      ]
+    },
+    {
+      "name": "workspace_created",
+      "tier": 2,
+      "owner": "pm.core@arclight.example",
+      "status": "deprecated",
+      "introduced": "2024-03-01",
+      "deprecated_at": "2026-06-01",
+      "sunset_at": "2026-10-01",
+      "superseded_by": "pipeline_created",
+      "source": "server",
+      "description": "Renamed to pipeline_created when the product settled on 'pipeline' as the user-facing term. Dual-running until sunset; do not add new references.",
+      "trigger": "Pipeline row committed",
+      "decision": "Superseded. Retained only so historical comparisons remain valid through the migration.",
+      "destinations": [
+        "warehouse"
+      ],
+      "monitoring": {
+        "freshness": null,
+        "volume_anomaly_pct": null,
+        "paged": false
+      },
+      "properties": [
+        {
+          "name": "workspace_id",
+          "type": "string",
+          "required": true,
+          "cardinality": "unbounded",
+          "register_dimension": false
+        },
+        {
+          "name": "creation_method",
+          "type": "string",
+          "required": true,
+          "enum_ref": "creation_method",
+          "register_dimension": false
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "activation": {
+      "current_version": "2026.2",
+      "versions": [
+        {
+          "version": "2026.2",
+          "effective_from": "2026-03-01",
+          "window_days": 14,
+          "scope": "account",
+          "criteria": [
+            {
+              "id": "pipeline_created",
+              "rule": "count(pipeline_created) >= 1"
+            },
+            {
+              "id": "member_added",
+              "rule": "count(member_added) >= 3"
+            },
+            {
+              "id": "deal_created",
+              "rule": "count(deal_created) >= 20 across >= 2 distinct days"
+            },
+            {
+              "id": "crm_connected",
+              "rule": "count(integration_connected where integration_category = 'crm') >= 1"
+            }
+          ],
+          "derivation": "Cohort analysis of 4180 accounts created 2025-07 to 2025-12. Accounts meeting all four criteria retained at 68% at week 12; accounts meeting two or fewer retained at 19%."
+        },
+        {
+          "version": "2026.1",
+          "effective_from": "2026-01-01",
+          "superseded_on": "2026-03-01",
+          "window_days": 14,
+          "scope": "account",
+          "criteria": [
+            {
+              "id": "pipeline_created",
+              "rule": "count(pipeline_created) >= 1"
+            },
+            {
+              "id": "member_added",
+              "rule": "count(member_added) >= 3"
+            },
+            {
+              "id": "deal_created",
+              "rule": "count(deal_created) >= 20 across >= 2 distinct days"
+            }
+          ],
+          "derivation": "Superseded: CRM-connected accounts showed a 22-point retention gap at matched usage levels, so crm_connected was added as criterion 4."
+        }
+      ]
+    },
+    "feature_adoption": {
+      "default_rule": "3 uses across 2 distinct days within 14 days of first use",
+      "abandonment_window_days": 30
+    },
+    "onboarding_abandonment": {
+      "window_hours": 72,
+      "note": "No step event for the flow within the window. Changing this window silently changes every historical abandonment rate; treat it as a versioned definition."
+    }
+  }
+}

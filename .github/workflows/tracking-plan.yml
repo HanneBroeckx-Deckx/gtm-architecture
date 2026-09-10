@@ -1,0 +1,64 @@
+name: tracking plan
+
+on:
+  pull_request:
+    paths:
+      - 'tooling/**'
+      - 'data-layer/**'
+      - '.github/workflows/tracking-plan.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate tracking plan
+        run: node tooling/validate.mjs
+
+      - name: Parse every JSON Schema
+        run: |
+          set -euo pipefail
+          for f in data-layer/*.json tooling/schemas/*.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" \
+              && echo "ok   $f" \
+              || { echo "FAIL $f"; exit 1; }
+          done
+
+      - name: Generate types
+        run: |
+          node tooling/generate-types.mjs > /tmp/generated.ts
+          test -s /tmp/generated.ts
+          echo "generated $(wc -l < /tmp/generated.ts) lines"
+
+      - name: Plan summary
+        if: always()
+        run: |
+          {
+            echo '### Tracking plan'
+            echo '```'
+            node tooling/validate.mjs || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  links:
+    name: check internal links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Resolve every relative markdown link
+        run: node tooling/check-links.mjs

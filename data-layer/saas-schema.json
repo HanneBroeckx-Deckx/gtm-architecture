@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtm-architecture.dev/schemas/saas-schema.json",
+  "title": "SaaS / PLG Data Layer Envelope",
+  "description": "Contract for every object pushed to window.dataLayer on a B2B SaaS estate. One push = one event = one object. Validated in CI and in the browser during development. Any key not defined here is a defect, not an extension.",
+  "version": "2.1.0",
+  "type": "object",
+  "required": ["event", "event_id", "event_ts", "context"],
+  "additionalProperties": false,
+
+  "properties": {
+    "event": {
+      "type": "string",
+      "description": "Canonical event name. object_past_tense_verb, snake_case, <=40 chars.",
+      "pattern": "^[a-z][a-z0-9_]{2,39}$",
+      "maxLength": 40,
+      "examples": ["workspace_created", "subscription_started", "feature_used"]
+    },
+
+    "event_id": {
+      "type": "string",
+      "description": "UUIDv4 minted at emission. Deduplication key across client/server dual emission and across retries. Passed to Meta CAPI as event_id and to Google as transaction/order id where applicable.",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+
+    "event_ts": {
+      "type": "string",
+      "description": "ISO 8601 UTC with millisecond precision, from the emitting system's clock.",
+      "format": "date-time",
+      "examples": ["2026-09-09T14:32:11.482Z"]
+    },
+
+    "context": { "$ref": "#/$defs/context" },
+    "user": { "$ref": "#/$defs/user" },
+    "account": { "$ref": "#/$defs/account" },
+    "subscription": { "$ref": "#/$defs/subscription" },
+    "attribution": { "$ref": "#/$defs/attribution" },
+    "experiment": { "$ref": "#/$defs/experiment" },
+
+    "properties": {
+      "type": "object",
+      "description": "Event-specific payload. Keys are declared per event in tooling/tracking-plan.json. Flat: no nested objects, no arrays of objects.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,39}$" },
+      "maxProperties": 12,
+      "additionalProperties": {
+        "type": ["string", "number", "integer", "boolean", "null"],
+        "description": "Scalars only. Nested structures do not survive GA4 parameter flattening and complicate warehouse contracts."
+      }
+    },
+
+    "_clear": {
+      "type": "boolean",
+      "description": "GTM housekeeping flag. Set true on the push that follows a nested payload to prevent dataLayer key persistence bleeding into subsequent events.",
+      "const": true
+    }
+  },
+
+  "$defs": {
+
+    "context": {
+      "type": "object",
+      "description": "Attached to every push by the collection layer. Never re-declared per event.",
+      "required": ["anonymous_id", "session_id", "app_surface", "app_version", "environment", "consent"],
+      "additionalProperties": false,
+      "properties": {
+        "anonymous_id": {
+          "type": "string",
+          "description": "First-party cookie, UUIDv4, 13-month TTL, set server-side where possible to survive Safari ITP's 7-day cap on JS-set cookies.",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "app_surface": { "enum": ["web", "ios", "android", "api", "email", "server"] },
+        "app_version": {
+          "type": "string",
+          "description": "Semver or build SHA. Required for regression attribution when an event stops firing.",
+          "maxLength": 40
+        },
+        "environment": { "enum": ["production", "staging", "development"] },
+        "page": { "$ref": "#/$defs/page" },
+        "device": { "$ref": "#/$defs/device" },
+        "consent": { "$ref": "#/$defs/consent" },
+        "locale": {
+          "type": "string",
+          "description": "BCP 47 language tag.",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "timezone": { "type": "string", "description": "IANA timezone identifier." }
+      }
+    },
+
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "page_location": {
+          "type": "string",
+          "description": "Absolute URL. MUST be stripped of PII-bearing and click-id query parameters before push. See naming-rules.md.",
+          "format": "uri",
+          "maxLength": 1000
+        },
+        "page_path": { "type": "string", "maxLength": 500 },
+        "page_title": { "type": "string", "maxLength": 300 },
+        "page_referrer": { "type": "string", "maxLength": 420 },
+        "page_type": {
+          "enum": ["home", "pricing", "product", "blog", "docs", "case_study", "comparison", "legal", "careers", "app", "auth", "other"],
+          "description": "The highest-leverage marketing dimension. Survives URL restructures and redesigns."
+        },
+        "page_template": { "type": "string", "maxLength": 100 },
+        "content_group": { "type": "string", "maxLength": 100 },
+        "is_authenticated": { "type": "boolean" }
+      }
+    },
+
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "device_category": { "enum": ["desktop", "mobile", "tablet", "tv", "bot", "unknown"] },
+        "viewport_width": { "type": "integer", "minimum": 0, "maximum": 20000 },
+        "viewport_height": { "type": "integer", "minimum": 0, "maximum": 20000 },
+        "connection_type": { "enum": ["4g", "3g", "2g", "slow-2g", "wifi", "ethernet", "unknown"] },
+        "is_pwa": { "type": "boolean" }
+      }
+    },
+
+    "consent": {
+      "type": "object",
+      "description": "Snapshot of consent state at emission. Present on every event so denied-consent traffic is measured rather than invisible. The first four are Google Consent Mode v2 signals.",
+      "required": ["ad_storage", "analytics_storage", "ad_user_data", "ad_personalization", "cmp_version"],
+      "additionalProperties": false,
+      "properties": {
+        "ad_storage": { "enum": ["granted", "denied"] },
+        "analytics_storage": { "enum": ["granted", "denied"] },
+        "ad_user_data": { "enum": ["granted", "denied"] },
+        "ad_personalization": { "enum": ["granted", "denied"] },
+        "functionality_storage": { "enum": ["granted", "denied"] },
+        "personalization_storage": { "enum": ["granted", "denied"] },
+        "security_storage": { "enum": ["granted", "denied"] },
+        "cmp_version": { "type": "string", "maxLength": 20 },
+        "region_rule": { "type": "string", "maxLength": 40 },
+        "consent_updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "user": {
+      "type": "object",
+      "description": "Present only when authenticated. Contains no PII under any circumstances.",
+      "required": ["user_id"],
+      "additionalProperties": false,
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "Opaque, stable, permanent. Never an email, username, or reusable row id.",
+          "minLength": 1,
+          "maxLength": 64,
+          "not": { "pattern": "@" }
+        },
+        "user_role": { "enum": ["owner", "admin", "editor", "commenter", "viewer", "billing"] },
+        "user_created_at": { "type": "string", "format": "date-time" },
+        "user_age_days": { "type": "integer", "minimum": 0 },
+        "is_internal": {
+          "type": "boolean",
+          "description": "Employee or contractor. Used to exclude internal traffic from all reporting. Set server-side."
+        },
+        "notification_prefs_set": { "type": "boolean" }
+      }
+    },
+
+    "account": {
+      "type": "object",
+      "description": "The billable entity. In B2B this is the primary analytical unit: retention, expansion and churn are account-scoped.",
+      "required": ["account_id"],
+      "additionalProperties": false,
+      "properties": {
+        "account_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "account_created_at": { "type": "string", "format": "date-time" },
+        "account_age_days": { "type": "integer", "minimum": 0 },
+        "plan_tier": { "enum": ["free", "starter", "growth", "enterprise"] },
+        "seat_count": { "type": "integer", "minimum": 0 },
+        "seats_active_28d": { "type": "integer", "minimum": 0 },
+        "company_size_band": { "enum": ["1_10", "11_50", "51_200", "201_1000", "1000_plus", "unknown"] },
+        "industry": { "type": "string", "maxLength": 60 },
+        "billing_country": { "type": "string", "pattern": "^[A-Z]{2}$", "description": "ISO 3166-1 alpha-2." },
+        "is_trial": { "type": "boolean" },
+        "account_health_band": { "enum": ["healthy", "watch", "at_risk", "critical"] }
+      }
+    },
+
+    "subscription": {
+      "type": "object",
+      "description": "Present on billing-related events. All monetary values excluding tax, in the stated currency.",
+      "required": ["subscription_id", "currency"],
+      "additionalProperties": false,
+      "properties": {
+        "subscription_id": { "type": "string", "maxLength": 64 },
+        "plan_tier": { "enum": ["free", "starter", "growth", "enterprise"] },
+        "billing_interval": { "enum": ["monthly", "annual"] },
+        "mrr": { "type": "number", "minimum": 0 },
+        "value": { "type": "number", "minimum": 0 },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217. A monetary value without a currency sibling is a defect."
+        },
+        "payment_method": { "enum": ["card", "sepa_debit", "bank_transfer", "invoice", "other"] },
+        "converted_from_trial": { "type": "boolean" },
+        "sales_assisted": { "type": "boolean" }
+      },
+      "dependentRequired": {
+        "value": ["currency"],
+        "mrr": ["currency"]
+      }
+    },
+
+    "attribution": {
+      "type": "object",
+      "description": "Stored envelope, captured at first touch and carried to conversion. Never re-derived at conversion time from the current referrer.",
+      "additionalProperties": false,
+      "properties": {
+        "first_touch_source": { "type": "string", "maxLength": 100 },
+        "first_touch_medium": { "type": "string", "maxLength": 100 },
+        "first_touch_campaign": { "type": "string", "maxLength": 100 },
+        "first_touch_content": { "type": "string", "maxLength": 100 },
+        "first_touch_term": { "type": "string", "maxLength": 100 },
+        "first_touch_at": { "type": "string", "format": "date-time" },
+        "first_touch_landing_path": { "type": "string", "maxLength": 500 },
+        "first_touch_referrer_domain": { "type": "string", "maxLength": 253 },
+        "last_touch_source": { "type": "string", "maxLength": 100 },
+        "last_touch_medium": { "type": "string", "maxLength": 100 },
+        "last_touch_campaign": { "type": "string", "maxLength": 100 },
+        "last_touch_at": { "type": "string", "format": "date-time" },
+        "session_count_before_conversion": { "type": "integer", "minimum": 1 },
+        "days_to_conversion": { "type": "integer", "minimum": 0 },
+        "click_id": {
+          "type": "string",
+          "description": "Written only when ad_storage is granted. Attached to conversions server-side.",
+          "maxLength": 200
+        },
+        "click_id_type": { "enum": ["gclid", "wbraid", "gbraid", "fbclid", "li_fat_id", "msclkid", "ttclid", "none"] }
+      }
+    },
+
+    "experiment": {
+      "type": "object",
+      "description": "Active experiment exposures. Exposure, not assignment.",
+      "additionalProperties": false,
+      "properties": {
+        "experiment_id": { "type": "string", "maxLength": 60 },
+        "variant_id": { "type": "string", "maxLength": 60 },
+        "assignment_unit": {
+          "enum": ["anonymous_id", "user_id", "account_id"],
+          "description": "In B2B this is almost always account_id: two users in one account must not see different variants."
+        },
+        "active_experiments": {
+          "type": "string",
+          "description": "Comma-joined experiment_id:variant_id pairs for multi-test exposure.",
+          "maxLength": 500
+        }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "event": "workspace_created",
+      "event_id": "3f2a91c4-7b6e-4d1a-9c83-0e5f7a2b8d41",
+      "event_ts": "2026-09-09T14:32:11.482Z",
+      "context": {
+        "anonymous_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "session_id": "s_01J8XK2M9P",
+        "app_surface": "web",
+        "app_version": "2026.9.3",
+        "environment": "production",
+        "page": {
+          "page_path": "/app/workspaces/new",
+          "page_type": "app",
+          "is_authenticated": true
+        },
+        "device": { "device_category": "desktop", "viewport_width": 1512 },
+        "consent": {
+          "ad_storage": "denied",
+          "analytics_storage": "granted",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied",
+          "cmp_version": "4.2.1",
+          "region_rule": "eea_strict"
+        },
+        "locale": "nl-BE"
+      },
+      "user": { "user_id": "u_9f3c1a", "user_role": "owner", "user_age_days": 0, "is_internal": false },
+      "account": { "account_id": "acc_44b2e1", "plan_tier": "free", "seat_count": 1, "is_trial": true },
+      "properties": {
+        "workspace_id": "ws_71ad3c",
+        "creation_method": "template",
+        "template_id": "tpl_sales_pipeline",
+        "workspace_index": 1,
+        "time_since_signup_s": 214
+      }
+    }
+  ]
+}

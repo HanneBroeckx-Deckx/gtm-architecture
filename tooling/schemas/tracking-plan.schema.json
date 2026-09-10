@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtm-architecture.dev/schemas/tracking-plan.schema.json",
+  "title": "Tracking Plan",
+  "description": "Shape of tracking-plan.json. This schema enforces structure; tooling/validate.mjs enforces the semantic rules a JSON Schema cannot express — verb vocabulary, PII heuristics, tier obligations, dimension budgets, currency pairing, activation versioning.",
+  "type": "object",
+  "required": ["plan_version", "updated_at", "conventions", "events"],
+  "additionalProperties": true,
+
+  "properties": {
+    "$schema":     { "type": "string" },
+    "plan_name":   { "type": "string" },
+    "plan_version": { "type": "string", "pattern": "^[0-9]{4}\\.[0-9]+\\.[0-9]+$" },
+    "updated_at":  { "type": "string", "format": "date" },
+    "description": { "type": "string" },
+
+    "conventions": {
+      "type": "object",
+      "required": ["event_name_pattern", "approved_verbs"],
+      "additionalProperties": true,
+      "properties": {
+        "event_name_pattern":    { "type": "string" },
+        "max_event_name_length": { "type": "integer", "minimum": 1, "maximum": 40 },
+        "property_name_pattern": { "type": "string" },
+        "enum_value_pattern":    { "type": "string" },
+        "max_properties_per_event":      { "type": "integer", "minimum": 1 },
+        "soft_max_properties_per_event": { "type": "integer", "minimum": 1 },
+        "reserved_prefixes":    { "type": "array", "items": { "type": "string" } },
+        "reserved_event_names": { "type": "array", "items": { "type": "string" } },
+        "forbidden_name_patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pattern", "reason"],
+            "properties": { "pattern": { "type": "string" }, "reason": { "type": "string" } }
+          }
+        },
+        "approved_verbs":  { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "name_exceptions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+
+    "platform_limits": { "type": "object" },
+    "budgets":         { "type": "object" },
+    "tiers":           { "type": "object" },
+
+    "enums": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": { "type": "string" }
+      }
+    },
+
+    "feature_registry": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/event" }
+    },
+
+    "definitions": { "type": "object" }
+  },
+
+  "$defs": {
+
+    "event": {
+      "type": "object",
+      "required": ["name", "tier", "owner", "status", "source", "description", "trigger", "decision", "destinations", "properties"],
+      "additionalProperties": false,
+      "properties": {
+        "name":        { "type": "string", "maxLength": 40, "pattern": "^[a-z][a-z0-9_]{2,39}$" },
+        "tier":        { "type": "integer", "enum": [0, 1, 2, 3] },
+        "owner":       { "type": "string", "description": "A person, not a team. They are paged when it breaks." },
+        "status":      { "enum": ["active", "deprecated", "sunset"] },
+        "source":      { "enum": ["server", "client", "both"] },
+        "description": { "type": "string", "minLength": 30 },
+        "trigger":     { "type": "string", "minLength": 5, "description": "Exactly when this fires. Reproducible by someone who has never seen the code." },
+        "decision":    { "type": "string", "minLength": 5, "description": "The decision this event changes. No decision, no event." },
+        "introduced":  { "type": "string", "format": "date" },
+        "expires_at":  { "type": "string", "format": "date", "description": "Required for Tier 3." },
+        "deprecated_at": { "type": "string", "format": "date" },
+        "sunset_at":     { "type": "string", "format": "date", "description": "Required when status is deprecated." },
+        "superseded_by": { "type": "string" },
+        "destinations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["ga4", "warehouse", "crm", "ads", "product_analytics", "lifecycle"] }
+        },
+        "monitoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "freshness": { "type": ["string", "null"], "enum": ["hourly", "daily", "weekly", null] },
+            "volume_anomaly_pct": { "type": ["number", "null"], "minimum": 0 },
+            "paged": { "type": "boolean" }
+          }
+        },
+        "reconciliation": {
+          "type": "object",
+          "required": ["source_of_record", "tolerance_pct", "cadence"],
+          "additionalProperties": false,
+          "properties": {
+            "source_of_record": { "type": "string" },
+            "tolerance_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "cadence": { "enum": ["monthly", "quarterly", "annual"] }
+          }
+        },
+        "properties": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/property" }
+        }
+      }
+    },
+
+    "property": {
+      "type": "object",
+      "required": ["name", "type", "required"],
+      "additionalProperties": false,
+      "properties": {
+        "name":     { "type": "string", "maxLength": 40, "pattern": "^[a-z][a-z0-9_]{1,39}$" },
+        "type":     { "enum": ["string", "number", "integer", "boolean"] },
+        "required": { "type": "boolean" },
+        "format":   { "enum": ["date-time", "date", "uri", "iso4217", "iso3166", "uuid", "bcp47"] },
+        "enum_ref":     { "type": "string", "description": "Key in plan.enums. Validated to exist." },
+        "registry_ref": { "enum": ["feature_registry"] },
+        "cardinality":  { "enum": ["enum", "bounded", "unbounded"] },
+        "register_dimension": { "type": "boolean", "description": "Whether this consumes a GA4 custom definition slot. Budgeted." },
+        "scope": { "enum": ["event", "user", "item"] },
+        "pii":   { "type": "boolean", "const": false, "description": "Asserted false and enforced. An event carrying personal data must not reach this pipeline at all." },
+        "description": { "type": "string" }
+      },
+      "dependentRequired": { "register_dimension": ["scope"] }
+    },
+
+    "feature": {
+      "type": "object",
+      "required": ["feature_id", "feature_name", "feature_category", "owner", "depth_levels"],
+      "additionalProperties": false,
+      "properties": {
+        "feature_id":   { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,50}$", "description": "Permanent. Never renamed, never reused for a different feature." },
+        "feature_name": { "type": "string" },
+        "feature_category": { "enum": ["authoring", "automation", "analytics", "collaboration", "admin", "integration", "ai"] },
+        "feature_tier_required": { "type": "string" },
+        "released_at":  { "type": "string", "format": "date" },
+        "is_core":      { "type": "boolean" },
+        "owner":        { "type": "string" },
+        "status":       { "enum": ["active", "retired"] },
+        "depth_levels": { "type": "array", "minItems": 2, "items": { "type": "string" } }
+      }
+    }
+  }
+}
